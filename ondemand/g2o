@@ -28,6 +28,79 @@ gap_level=$(($max_level/3))
 middle_level=$(($max_level-$(($gap_level/2))))
 low_level=$(($max_level-$gap_level))
 
+
+gpumaxlocation="no"
+gclock1=0
+gclock2=0
+gclock3=0
+gclock4=0
+gpuclock=()
+gpu_check="ok"
+
+if [ $gpumaxlocation == "no" -a -e /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk ]; then #g2
+	gpumaxlocation="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk"
+fi;
+if [ $gpumaxlocation == "no" -a -e /sys/devices/platform/kgsl-3d0.0/kgsl/kgsl-3d0/max_gpuclk ]; then #optimus g
+	gpumaxlocation="/sys/devices/platform/kgsl-3d0.0/kgsl/kgsl-3d0/max_gpuclk"
+fi;
+if [ $gpumaxlocation == "no" -a -e /sys/devices/system/gpu/max_freq ]; then #galaxy
+	gpumaxlocation="/sys/devices/system/gpu/max_freq"
+fi;
+if [ $gpumaxlocation == "no" -a -e /sys/devices/platform/pvrsrvkm.0/sgx_dvfs_max_lock ]; then #galaxy
+	gpumaxlocation="/sys/devices/platform/pvrsrvkm.0/sgx_dvfs_max_lock"
+fi;
+
+if [ -e /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/gpu_available_frequencies ]; then
+	tmp_gpu_available_freq=(`cat /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/gpu_available_frequencies`)
+	chmod 777 /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/*
+elif [ -e /sys/devices/platform/kgsl-3d0.0/kgsl/kgsl-3d0/gpu_available_frequencies ]; then
+	tmp_gpu_available_freq=(`cat /sys/devices/platform/kgsl-3d0.0/kgsl/kgsl-3d0/gpu_available_frequencies`)
+	chmod 777 /sys/devices/platform/kgsl-3d0.0/kgsl/kgsl-3d0/*
+elif [ -e /sys/devices/system/gpu/freq_table ]; then
+	tmp_gpu_available_freq=(`cat /sys/devices/system/gpu/freq_table`)
+	chmod 777 /sys/devices/system/gpu/*
+elif [ -e /sys/devices/platform/pvrsrvkm.0/sgx_dvfs_table ]; then
+	tmp_gpu_available_freq=(`cat /sys/devices/platform/pvrsrvkm.0/sgx_dvfs_table`)
+	chmod 777 /sys/devices/platform/pvrsrvkm.0/*
+else
+	tmp_gpu_available_freq=( 128000000 200000000 320000000 400000000 )
+fi;
+
+set_gpu_available_freq=()
+for gpu_freq in "${tmp_gpu_available_freq[@]}";
+do
+	i=1
+	for gpu_freq1 in "${tmp_gpu_available_freq[@]}";
+	do
+		if [ $gpu_freq1 -lt $gpu_freq ]; then
+			i=$(($i+1))
+		fi;
+ 	done
+	set_gpu_available_freq[$i]=$gpu_freq
+done
+
+gpu_available_freq=()
+j=1
+for gpu_freq in "${set_gpu_available_freq[@]}";
+do
+	gpu_available_freq[$j]=$gpu_freq
+	j=$(($j+1))
+done
+
+gpu_max_level=${#gpu_available_freq[@]}
+gpu_middle_level=$(($gpu_max_level-1))
+gpu_low_level=$(($gpu_max_level-2))
+
+if [ $gpumaxlocation == "no" ]; then
+	busybox mount -o remount,rw /system
+	if [ ! -e /system/asc_log.txt ]; then
+		touch /system/asc_log.txt
+		chmod 777 /system/asc_log.txt
+	fi;
+	echo "gpu max_freq not found error" >> /system/asc_log.txt
+	gpu_check="no"
+fi;
+
 cpu_prev_total=0
 cpu_prev_idle=0
 cpu_usage=0
@@ -132,15 +205,12 @@ cpu2_limit2=55
 cpu3_limit1=40
 cpu3_limit2=60
 
-#gpu_location="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/gpu_available_frequencies"
-#gpu_location="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk"
+gpu_limit1=15
+gpu_limit2=35
 
 while [ 1 ];
 do
 	busybox usleep 1000000
-	
-	#get_cpu_usage all
-	#echo "cpu_usage : $cpu_usage"
 	
 	if [ $cpu0_ondemand == "no" ]; then
 		chmod 777 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
@@ -274,6 +344,25 @@ do
 		cpu3_count=0
 	fi;
 	
+	if [ $gpu_check == "ok" ]; then
+		get_cpu_usage all
+		gpu_max_clk=`cat $gpumaxlocation`
+		if [ $cpu_usage -ne 0 ]; then
+			if [ $cpu_usage -lt $gpu_limit1 ]; then
+				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_low_level]} ]; then
+					echo ${gpu_available_freq[$gpu_low_level]} > $gpumaxlocation
+				fi;
+			elif [ $cpu_usage -ge $gpu_limit1 -a $cpu_usage -le $gpu_limit2 ]; then
+				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_middle_level]} ]; then
+					echo ${gpu_available_freq[$gpu_middle_level]} > $gpumaxlocation
+				fi;
+			else
+				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_max_level]} ]; then
+					echo ${gpu_available_freq[$gpu_max_level]} > $gpumaxlocation
+				fi;		
+			fi;
+		fi;
+	fi;
 	
 	sampling_rate="/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate"
 	if [ `cat $sampling_rate` -ne 20000 ]; then
