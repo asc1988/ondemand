@@ -132,6 +132,9 @@ cpu2_limit2=55
 cpu3_limit1=40
 cpu3_limit2=60
 
+#gpu_location="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/gpu_available_frequencies"
+#gpu_location="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk"
+
 while [ 1 ];
 do
 	busybox usleep 1000000
