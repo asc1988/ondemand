@@ -92,7 +92,7 @@ gpu_middle_level=$(($gpu_max_level-1))
 gpu_low_level=$(($gpu_max_level-2))
 
 if [ $gpumaxlocation == "no" ]; then
-	busybox mount -o remount,rw /system
+	busybox mount -o rw,remount /system;
 	if [ ! -e /system/asc_log.txt ]; then
 		touch /system/asc_log.txt
 		chmod 777 /system/asc_log.txt
