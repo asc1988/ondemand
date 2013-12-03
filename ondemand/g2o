@@ -24,10 +24,13 @@ do
 done
 
 max_level=${#available_freq[@]}
-gap_level=$(($max_level/3))
-middle_level=$(($max_level-$(($gap_level/2))))
-low_level=$(($max_level-$gap_level))
-
+if [ $max_level -ge 10 ]; then
+	middle_level=$(($max_level-2))
+	low_level=$(($max_level-4))
+else
+	middle_level=$(($max_level-1))
+	low_level=$(($max_level-2))
+fi;
 
 gpumaxlocation="no"
 gclock1=0
