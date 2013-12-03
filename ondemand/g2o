@@ -234,7 +234,7 @@ do
 	cpu0_max_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
 	cpu0_max_freq=`cat $cpu0_max_location`
 	
-	if [ $cpu0_max_check == "yes" -a $cpu0_usage -lt $(($cpu0_limit2-20)) ]; then
+	if [ $cpu0_max_check == "yes" -a $cpu0_usage -lt $(($cpu0_limit2-10)) ]; then
 		cpu0_max_check="no"
 	fi;
 	
@@ -268,7 +268,7 @@ do
 		cpu1_max_location="/sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq"
 		cpu1_max_freq=`cat $cpu1_max_location`
 		
-		if [ $cpu1_max_check == "yes" -a $cpu1_usage -lt $(($cpu1_limit2-20)) ]; then
+		if [ $cpu1_max_check == "yes" -a $cpu1_usage -lt $(($cpu1_limit2-10)) ]; then
 			cpu1_max_check="no"
 		fi;
 		
@@ -308,7 +308,7 @@ do
 			cpu2_max_location="/sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq"
 			cpu2_max_freq=`cat $cpu2_max_location`
 			
-			if [ $cpu2_max_check == "yes" -a $cpu2_usage -lt $(($cpu2_limit2-20)) ]; then
+			if [ $cpu2_max_check == "yes" -a $cpu2_usage -lt $(($cpu2_limit2-10)) ]; then
 				cpu2_max_check="no"
 			fi;
 			
@@ -349,7 +349,7 @@ do
 			cpu3_max_location="/sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq"
 			cpu3_max_freq=`cat $cpu3_max_location`
 			
-			if [ $cpu3_max_check == "yes" -a $cpu3_usage -lt $(($cpu3_limit2-20)) ]; then
+			if [ $cpu3_max_check == "yes" -a $cpu3_usage -lt $(($cpu3_limit2-10)) ]; then
 				cpu3_max_check="no"
 			fi;
 			
@@ -402,18 +402,12 @@ do
 		fi;
 	fi;
 	
-	if [ $ondemand == "no" -a $cpu0_ondemand == "yes" ]; then
+	if [ $ondemand == "no" -a -e /sys/devices/system/cpu/cpufreq/ondemand ]; then
 		chmod 777 /sys/devices/system/cpu/cpufreq/ondemand/*
 
-		if [ -e /sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load ]; then
-			echo "13" > /sys/devices/system/cpu/cpufreq/ondemand/down_differential
-			echo "1" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
-			echo "98" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
-		else
-			echo "10" > /sys/devices/system/cpu/cpufreq/ondemand/down_differential
-			echo "1" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
-			echo "95" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
-		fi;
+		echo "10" > /sys/devices/system/cpu/cpufreq/ondemand/down_differential
+		echo "1" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
+		echo "95" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
 
 		echo "85" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load
 		echo "960000" > /sys/devices/system/cpu/cpufreq/ondemand/sync_freq
@@ -425,6 +419,7 @@ do
 		echo "14" > /sys/devices/system/cpu/cpufreq/ondemand/high_grid_step
 		echo "50" > /sys/devices/system/cpu/cpufreq/ondemand/middle_grid_load
 		echo "7" > /sys/devices/system/cpu/cpufreq/ondemand/middle_grid_step
+		
 		ondemand="yes"
 	fi;
 done;
