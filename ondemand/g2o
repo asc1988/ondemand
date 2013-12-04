@@ -427,16 +427,27 @@ do
 	if [ $ondemand == "no" -a -e /sys/devices/system/cpu/cpufreq/ondemand ]; then
 		chmod 777 /sys/devices/system/cpu/cpufreq/ondemand/*
 
-		echo "13" > /sys/devices/system/cpu/cpufreq/ondemand/down_differential
-		echo "3" > /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor
-		echo "98" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+		down_differential="/sys/devices/system/cpu/cpufreq/ondemand/down_differential"
+		sampling_down_factor="/sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor"
+		up_threshold="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold"
+		up_threshold_any_cpu_load="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load"
+		sync_freq="/sys/devices/system/cpu/cpufreq/ondemand/sync_freq"
+		up_threshold_multi_core="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_multi_core"
+		optimal_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_freq"
+		optimal_max_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq"
 
-		echo "80" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load
-		echo ${available_freq[$half_level]} > /sys/devices/system/cpu/cpufreq/ondemand/sync_freq
-		echo "70" > /sys/devices/system/cpu/cpufreq/ondemand/up_threshold_multi_core
-		echo ${available_freq[$half_level]} > /sys/devices/system/cpu/cpufreq/ondemand/optimal_freq
-		echo ${available_freq[$half_level]} > /sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq
+		echo "13" > $down_differential
+		echo "3" > $sampling_down_factor
+		echo "98" > $up_threshold
+
+		echo "80" > $up_threshold_any_cpu_load
+		echo ${available_freq[$half_level]} > $sync_freq
+		echo "70" > $up_threshold_multi_core
+		echo ${available_freq[$half_level]} > $optimal_freq
+		echo ${available_freq[$half_level]} > $optimal_max_freq
 		
-		ondemand="yes"
+		if [ `cat $down_differential` -eq 13 -a `cat $sampling_down_factor` -eq 3 -a `cat $up_threshold` -eq 98 ]; then
+			ondemand="yes"		
+		fi;
 	fi;
 done;
