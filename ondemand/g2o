@@ -24,7 +24,11 @@ do
 done
 
 max_level=${#available_freq[@]}
-half_level=$(($max_level/2))
+if [ $max_level -ge 14 ]; then
+	half_level=$(($max_level/2-1))
+else
+	half_level=$(($max_level/2))
+fi;
 if [ $max_level -ge 10 ]; then
 	middle_level=$(($max_level-2))
 	low_level=$(($max_level-4))
@@ -91,7 +95,7 @@ gpu_middle_level=$(($gpu_max_level-1))
 gpu_low_level=$(($gpu_max_level-2))
 
 if [ $gpumaxlocation == "no" ]; then
-	busybox mount -o rw,remount /system;
+	busybox mount -o rw,remount /system
 	if [ ! -e /system/asc_log.txt ]; then
 		touch /system/asc_log.txt
 		chmod 777 /system/asc_log.txt
@@ -220,36 +224,60 @@ cpu3_max_check="no"
 
 gpu_limit1=30
 gpu_limit2=60
+gpu_temp=40
 gpu_max_check="no"
 
 if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
 	cpu0_limit1=40
 	cpu0_limit2=70
+	cpu0_temp=40
 	cpu1_limit1=40
 	cpu1_limit2=70
+	cpu1_temp=40
 	cpu2_limit1=45
 	cpu2_limit2=75
+	cpu2_temp=39
 	cpu3_limit1=50
 	cpu3_limit2=80
+	cpu3_temp=38
 else
 	cpu_core="dual"
 	cpu0_limit1=40
 	cpu0_limit2=70
+	cpu0_temp=40
 	cpu1_limit1=40
 	cpu1_limit2=70
+	cpu1_temp=40
 fi;
+
+down_differential="/sys/devices/system/cpu/cpufreq/ondemand/down_differential"
+sampling_down_factor="/sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor"
+up_threshold="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold"
+up_threshold_any_cpu_load="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load"
+sync_freq="/sys/devices/system/cpu/cpufreq/ondemand/sync_freq"
+up_threshold_multi_core="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_multi_core"
+optimal_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_freq"
+optimal_max_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq"
+
+down_differential_val=10
+sampling_down_factor_val=2
+up_threshold_val=95
 
 while [ 1 ];
 do
 	busybox usleep 1000000
 	
+	battery_temp
+	
 	if [ $cpu0_ondemand == "no" ]; then
 		if [ `cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor` == "ondemand" ]; then
+			chmod 777 /sys/devices/system/cpu/cpufreq/ondemand/*
 			cpu0_ondemand="yes"
+		else
+			chmod 777 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+			echo "ondemand" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 
 		fi;
-		chmod 777 /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
-		echo "ondemand" > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 
 	fi;
 	
 	get_cpu_usage 0
@@ -261,19 +289,26 @@ do
 	fi;
 	
 	if [ $cpu0_max_check == "no" ]; then
+		cpu0_clk_val=$low_level
 		if [ $cpu0_usage -lt $cpu0_limit1 ]; then
-			if [ $cpu0_max_freq -ne ${available_freq[$low_level]} ]; then
-				echo ${available_freq[$low_level]} > $cpu0_max_location
-			fi;
+			cpu0_clk_val=$low_level
 		elif [ $cpu0_usage -ge $cpu0_limit1 -a $cpu0_usage -lt $cpu0_limit2 ]; then
-			if [ $cpu0_max_freq -ne ${available_freq[$middle_level]} ]; then
-				echo ${available_freq[$middle_level]} > $cpu0_max_location
+			if [ $temp -lt $cpu0_temp ]; then
+				cpu0_clk_val=$middle_level
+			else
+				cpu0_clk_val=$(($middle_level-1))
 			fi;
 		else
-			if [ $cpu0_max_freq -ne ${available_freq[$max_level]} ]; then
-				echo ${available_freq[$max_level]} > $cpu0_max_location
-				cpu0_max_check="yes"
+			if [ $temp -lt $cpu0_temp ]; then
+				cpu0_clk_val=$max_level
+			else
+				cpu0_clk_val=$(($max_level-1))			
 			fi;
+			cpu0_max_check="yes"
+		fi;
+		
+		if [ $cpu0_max_freq -ne ${available_freq[$cpu0_clk_val]} ]; then
+			echo ${available_freq[$cpu0_clk_val]} > $cpu0_max_location
 		fi;
 	fi;
 
@@ -281,9 +316,10 @@ do
 		if [ $cpu1_ondemand == "no" ]; then
 			if [ `cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor` == "ondemand" ]; then
 				cpu1_ondemand="yes"
+			else
+				chmod 777 /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
+				echo "ondemand" > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor 		
 			fi;
-			chmod 777 /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor
-			echo "ondemand" > /sys/devices/system/cpu/cpu1/cpufreq/scaling_governor 		
 		fi;
 
 		get_cpu_usage 1
@@ -295,19 +331,26 @@ do
 		fi;
 		
 		if [ $cpu1_max_check == "no" ]; then
+			cpu1_clk_val=$low_level
 			if [ $cpu1_usage -lt $cpu1_limit1 ]; then
-				if [ $cpu1_max_freq -ne ${available_freq[$low_level]} ]; then
-					echo ${available_freq[$low_level]} > $cpu1_max_location
-				fi;
+				cpu1_clk_val=$low_level
 			elif [ $cpu1_usage -ge $cpu1_limit1 -a $cpu1_usage -lt $cpu1_limit2 ]; then
-				if [ $cpu1_max_freq -ne ${available_freq[$middle_level]} ]; then
-					echo ${available_freq[$middle_level]} > $cpu1_max_location
+				if [ $temp -lt $cpu1_temp ]; then
+					cpu1_clk_val=$middle_level
+				else
+					cpu1_clk_val=$(($middle_level-1))
 				fi;
 			else
-				if [ $cpu1_max_freq -ne ${available_freq[$max_level]} ]; then
-					echo ${available_freq[$max_level]} > $cpu1_max_location
-					cpu1_max_check="yes"
+				if [ $temp -lt $cpu1_temp ]; then
+					cpu1_clk_val=$max_level
+				else
+					cpu1_clk_val=$(($max_level-1))
 				fi;
+				cpu1_max_check="yes"
+			fi;
+			
+			if [ $cpu1_max_freq -ne ${available_freq[$cpu1_clk_val]} ]; then
+				echo ${available_freq[$cpu1_clk_val]} > $cpu1_max_location
 			fi;
 		fi;
 	else
@@ -321,9 +364,10 @@ do
 			if [ $cpu2_ondemand == "no" ]; then
 				if [ `cat /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor` == "ondemand" ]; then
 					cpu2_ondemand="yes"
+				else
+					chmod 777 /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
+					echo "ondemand" > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor 
 				fi;
-				chmod 777 /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor
-				echo "ondemand" > /sys/devices/system/cpu/cpu2/cpufreq/scaling_governor 
 			fi;
 		
 			get_cpu_usage 2
@@ -335,19 +379,26 @@ do
 			fi;
 			
 			if [ $cpu2_max_check == "no" ]; then
+				cpu2_clk_val=$low_level
 				if [ $cpu2_usage -lt $cpu2_limit1 ]; then
-					if [ $cpu2_max_freq -ne ${available_freq[$low_level]} ]; then
-						echo ${available_freq[$low_level]} > $cpu2_max_location
-					fi;
+					cpu2_clk_val=$low_level
 				elif [ $cpu2_usage -ge $cpu2_limit1 -a $cpu2_usage -lt $cpu2_limit2 ]; then
-					if [ $cpu2_max_freq -ne ${available_freq[$middle_level]} ]; then
-						echo ${available_freq[$middle_level]} > $cpu2_max_location
+					if [ $temp -lt $cpu2_temp ]; then
+						cpu2_clk_val=$middle_level
+					else
+						cpu2_clk_val=$(($middle_level-1))
 					fi;
 				else
-					if [ $cpu2_max_freq -ne ${available_freq[$max_level]} ]; then
-						echo ${available_freq[$max_level]} > $cpu2_max_location
-						cpu2_max_check="yes"
+					if [ $temp -lt $cpu2_temp ]; then
+						cpu2_clk_val=$max_level
+					else
+						cpu2_clk_val=$(($max_level-1))
 					fi;
+					cpu2_max_check="yes"
+				fi;
+				
+				if [ $cpu2_max_freq -ne ${available_freq[$cpu2_clk_val]} ]; then
+					echo ${available_freq[$cpu2_clk_val]} > $cpu2_max_location
 				fi;
 			fi;
 		else
@@ -362,9 +413,10 @@ do
 			if [ $cpu3_ondemand == "no" ]; then
 				if [ `cat /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor` == "ondemand" ]; then
 					cpu3_ondemand="yes"
+				else
+					chmod 777 /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
+					echo "ondemand" > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor 
 				fi;
-				chmod 777 /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor
-				echo "ondemand" > /sys/devices/system/cpu/cpu3/cpufreq/scaling_governor 
 			fi;
 		
 			get_cpu_usage 3
@@ -376,19 +428,26 @@ do
 			fi;
 			
 			if [ $cpu3_max_check == "no" ]; then
+				cpu3_clk_val=$low_level
 				if [ $cpu3_usage -lt $cpu3_limit1 ]; then
-					if [ $cpu3_max_freq -ne ${available_freq[$low_level]} ]; then
-						echo ${available_freq[$low_level]} > $cpu3_max_location
-					fi;
+					cpu3_clk_val=$low_level
 				elif [ $cpu3_usage -ge $cpu3_limit1 -a $cpu3_usage -lt $cpu3_limit2 ]; then
-					if [ $cpu3_max_freq -ne ${available_freq[$middle_level]} ]; then
-						echo ${available_freq[$middle_level]} > $cpu3_max_location
+					if [ $temp -lt $cpu3_temp ]; then
+						cpu3_clk_val=$middle_level
+					else
+						cpu3_clk_val=$(($middle_level-1))
 					fi;
 				else
-					if [ $cpu3_max_freq -ne ${available_freq[$max_level]} ]; then
-						echo ${available_freq[$max_level]} > $cpu3_max_location
-						cpu3_max_check="yes"
+					if [ $temp -lt $cpu3_temp ]; then
+						cpu3_clk_val=$max_level
+					else
+						cpu3_clk_val=$(($max_level-1))
 					fi;
+					cpu3_max_check="yes"
+				fi;
+				
+				if [ $cpu3_max_freq -ne ${available_freq[$cpu3_clk_val]} ]; then
+					echo ${available_freq[$cpu3_clk_val]} > $cpu3_max_location
 				fi;
 			fi;
 		else
@@ -407,47 +466,67 @@ do
 	
 		if [ $gpu_max_check == "no" -a $cpu_usage -ne 0 ]; then
 			gpu_max_clk=`cat $gpumaxlocation`
+			gpu_clk_val=$gpu_max_level
 			if [ $cpu_usage -lt $gpu_limit1 ]; then
-				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_low_level]} ]; then
-					echo ${gpu_available_freq[$gpu_low_level]} > $gpumaxlocation
-				fi;
+				gpu_clk_val=$gpu_low_level
 			elif [ $cpu_usage -ge $gpu_limit1 -a $cpu_usage -le $gpu_limit2 ]; then
-				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_middle_level]} ]; then
-					echo ${gpu_available_freq[$gpu_middle_level]} > $gpumaxlocation
+				if [ $temp -lt $gpu_temp ]; then
+					gpu_clk_val=$gpu_middle_level
+				else
+					gpu_clk_val=$gpu_low_level				
 				fi;
 			else
-				if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_max_level]} ]; then
-					echo ${gpu_available_freq[$gpu_max_level]} > $gpumaxlocation
-					gpu_max_check="yes"
+				if [ $temp -lt $gpu_temp ]; then
+					gpu_clk_val=$gpu_max_level
+				else
+					gpu_clk_val=$gpu_middle_level				
 				fi;
+				gpu_max_check="yes"
+			fi;
+			
+			if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_clk_val]} ]; then
+				echo ${gpu_available_freq[$gpu_clk_val]} > $gpumaxlocation
 			fi;
 		fi;
 	fi;
 	
-	if [ $ondemand == "no" -a -e /sys/devices/system/cpu/cpufreq/ondemand ]; then
-		chmod 777 /sys/devices/system/cpu/cpufreq/ondemand/*
+	if [ $battery -ne 1000 ]; then
+		battery_count
+	fi;
+	
+	if [ $battery -lt 30 ]; then
+		down_differential_val=7
+		sampling_down_factor_val=1
+		up_threshold_val=97
+	elif [ $battery -lt 50 ]; then
+		down_differential_val=7
+		sampling_down_factor_val=2
+		up_threshold_val=97
+	elif [ $battery -lt 70 ]; then
+		down_differential_val=10
+		sampling_down_factor_val=1
+		up_threshold_val=95
+	else
+		down_differential_val=10
+		sampling_down_factor_val=2
+		up_threshold_val=95
+	fi;
+	
+	if [ `cat $down_differential` -ne $down_differential_val -o `cat $sampling_down_factor` -ne $sampling_down_factor_val -o `cat $up_threshold` -ne $up_threshold_val ]; then
+		ondemand="no"
+	fi;
+	
+	if [ $ondemand == "no" ]; then
+		echo $down_differential_val > $down_differential
+		echo $sampling_down_factor_val > $sampling_down_factor
+		echo $up_threshold_val > $up_threshold
 
-		down_differential="/sys/devices/system/cpu/cpufreq/ondemand/down_differential"
-		sampling_down_factor="/sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor"
-		up_threshold="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold"
-		up_threshold_any_cpu_load="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_any_cpu_load"
-		sync_freq="/sys/devices/system/cpu/cpufreq/ondemand/sync_freq"
-		up_threshold_multi_core="/sys/devices/system/cpu/cpufreq/ondemand/up_threshold_multi_core"
-		optimal_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_freq"
-		optimal_max_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq"
-
-		echo "13" > $down_differential
-		echo "3" > $sampling_down_factor
-		echo "98" > $up_threshold
-
-		echo "80" > $up_threshold_any_cpu_load
+		echo "85" > $up_threshold_any_cpu_load
 		echo ${available_freq[$half_level]} > $sync_freq
-		echo "70" > $up_threshold_multi_core
+		echo "75" > $up_threshold_multi_core
 		echo ${available_freq[$half_level]} > $optimal_freq
 		echo ${available_freq[$half_level]} > $optimal_max_freq
 		
-		if [ `cat $down_differential` -eq 13 -a `cat $sampling_down_factor` -eq 3 -a `cat $up_threshold` -eq 98 ]; then
-			ondemand="yes"		
-		fi;
+		ondemand="yes"
 	fi;
 done;
