@@ -495,20 +495,20 @@ do
 	fi;
 	
 	if [ $battery -lt 30 ]; then
-		down_differential_val=7
-		sampling_down_factor_val=1
-		up_threshold_val=97
+		down_differential_val=3
+		sampling_down_factor_val=3
+		up_threshold_val=98
 	elif [ $battery -lt 50 ]; then
+		down_differential_val=8
+		sampling_down_factor_val=2
+		up_threshold_val=98
+	elif [ $battery -lt 70 ]; then
 		down_differential_val=7
 		sampling_down_factor_val=2
-		up_threshold_val=97
-	elif [ $battery -lt 70 ]; then
-		down_differential_val=10
-		sampling_down_factor_val=1
 		up_threshold_val=95
 	else
 		down_differential_val=10
-		sampling_down_factor_val=2
+		sampling_down_factor_val=3
 		up_threshold_val=95
 	fi;
 	
