@@ -231,24 +231,30 @@ if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
 	cpu0_limit1=40
 	cpu0_limit2=70
+	cpu0_min_limit=20
 	cpu0_temp=40
 	cpu1_limit1=40
 	cpu1_limit2=70
+	cpu1_min_limit=20
 	cpu1_temp=40
 	cpu2_limit1=45
 	cpu2_limit2=75
+	cpu2_min_limit=15
 	cpu2_temp=39
 	cpu3_limit1=50
 	cpu3_limit2=80
+	cpu3_min_limit=10
 	cpu3_temp=38
 else
 	cpu_core="dual"
 	cpu0_limit1=40
 	cpu0_limit2=70
+	cpu0_min_limit=20
 	cpu0_temp=40
 	cpu1_limit1=40
 	cpu1_limit2=70
 	cpu1_temp=40
+	cpu1_min_limit=20
 fi;
 
 down_differential="/sys/devices/system/cpu/cpufreq/ondemand/down_differential"
@@ -286,8 +292,14 @@ do
 	cpu0_min_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"
 	cpu0_min_freq=`cat $cpu0_min_location`
 	
-	if [ $cpu0_min_freq -ne ${available_freq[2]} ]; then
-		echo ${available_freq[2]} > $cpu0_min_location
+	if [ $cpu0_usage -lt $cpu0_min_limit ]; then
+		cpu0_min_clk_val=2
+	else
+		cpu0_min_clk_val=1
+	fi;
+	
+	if [ $cpu0_min_freq -ne ${available_freq[$cpu0_min_clk_val]} ]; then
+		echo ${available_freq[$cpu0_min_clk_val]} > $cpu0_min_location
 	fi;
 	
 	if [ $cpu0_max_check == "yes" -a $cpu0_usage -lt $(($cpu0_limit2-20)) ]; then
@@ -334,8 +346,14 @@ do
 		cpu1_min_location="/sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq"
 		cpu1_min_freq=`cat $cpu1_min_location`
 		
-		if [ $cpu1_min_freq -ne ${available_freq[2]} ]; then
-			echo ${available_freq[2]} > $cpu1_min_location
+		if [ $cpu1_usage -lt $cpu1_min_limit ]; then
+			cpu1_min_clk_val=2
+		else
+			cpu1_min_clk_val=1
+		fi;
+		
+		if [ $cpu1_min_freq -ne ${available_freq[$cpu1_min_clk_val]} ]; then
+			echo ${available_freq[$cpu1_min_clk_val]} > $cpu1_min_location
 		fi;
 		
 		if [ $cpu1_max_check == "yes" -a $cpu1_usage -lt $(($cpu1_limit2-20)) ]; then
@@ -388,8 +406,14 @@ do
 			cpu2_min_location="/sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq"
 			cpu2_min_freq=`cat $cpu2_min_location`
 			
-			if [ $cpu2_min_freq -ne ${available_freq[2]} ]; then
-				echo ${available_freq[2]} > $cpu2_min_location
+			if [ $cpu2_usage -lt $cpu2_min_limit ]; then
+				cpu2_min_clk_val=2
+			else
+				cpu2_min_clk_val=1
+			fi;
+			
+			if [ $cpu2_min_freq -ne ${available_freq[$cpu2_min_clk_val]} ]; then
+				echo ${available_freq[$cpu2_min_clk_val]} > $cpu2_min_location
 			fi;
 			
 			if [ $cpu2_max_check == "yes" -a $cpu2_usage -lt $(($cpu2_limit2-20)) ]; then
@@ -443,8 +467,14 @@ do
 			cpu3_min_location="/sys/devices/system/cpu/cpu3/cpufreq/scaling_min_freq"
 			cpu3_min_freq=`cat $cpu3_min_location`
 			
-			if [ $cpu3_min_freq -ne ${available_freq[2]} ]; then
-				echo ${available_freq[2]} > $cpu3_min_location
+			if [ $cpu3_usage -lt $cpu3_min_limit ]; then
+				cpu3_min_clk_val=2
+			else
+				cpu3_min_clk_val=1
+			fi;
+			
+			if [ $cpu3_min_freq -ne ${available_freq[$cpu3_min_clk_val]} ]; then
+				echo ${available_freq[$cpu3_min_clk_val]} > $cpu3_min_location
 			fi;
 			
 			if [ $cpu3_max_check == "yes" -a $cpu3_usage -lt $(($cpu3_limit2-20)) ]; then
@@ -519,20 +549,20 @@ do
 	fi;
 	
 	if [ $battery -lt 30 ]; then
-		down_differential_val=4
-		sampling_down_factor_val=3
+		down_differential_val=8
+		sampling_down_factor_val=2
 		up_threshold_val=98
 	elif [ $battery -lt 50 ]; then
-		down_differential_val=7
+		down_differential_val=8
 		sampling_down_factor_val=3
 		up_threshold_val=98
 	elif [ $battery -lt 70 ]; then
-		down_differential_val=7
+		down_differential_val=10
 		sampling_down_factor_val=2
 		up_threshold_val=95
 	else
 		down_differential_val=10
-		sampling_down_factor_val=2
+		sampling_down_factor_val=3
 		up_threshold_val=95
 	fi;
 	
