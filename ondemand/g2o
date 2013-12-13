@@ -39,6 +39,7 @@ fi;
 
 gpumaxlocation="no"
 gpu_check="ok"
+galaxy4="no"
 
 if [ $gpumaxlocation == "no" -a -e /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk ]; then #g2
 	gpumaxlocation="/sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk"
@@ -49,8 +50,9 @@ fi;
 if [ $gpumaxlocation == "no" -a -e /sys/devices/system/gpu/max_freq ]; then #galaxy
 	gpumaxlocation="/sys/devices/system/gpu/max_freq"
 fi;
-if [ $gpumaxlocation == "no" -a -e /sys/devices/platform/pvrsrvkm.0/sgx_dvfs_max_lock ]; then #galaxy
+if [ $gpumaxlocation == "no" -a -e /sys/devices/platform/pvrsrvkm.0/sgx_dvfs_max_lock ]; then #galaxy 4
 	gpumaxlocation="/sys/devices/platform/pvrsrvkm.0/sgx_dvfs_max_lock"
+	galaxy4="yes"
 fi;
 
 if [ -e /sys/devices/fdb00000.qcom,kgsl-3d0/kgsl/kgsl-3d0/gpu_available_frequencies ]; then
@@ -212,6 +214,7 @@ battery_count()
 }
 
 ondemand="no"
+ondemand_temp=39
 cpu0_ondemand="no"
 cpu1_ondemand="no"
 cpu2_ondemand="no"
@@ -222,15 +225,12 @@ cpu1_max_check="no"
 cpu2_max_check="no"
 cpu3_max_check="no"
 
-gpu_limit1=30
-gpu_limit2=60
-gpu_temp=40
 gpu_max_check="no"
 
 if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
-	cpu0_limit1=40
-	cpu0_limit2=70
+	cpu0_limit1=50
+	cpu0_limit2=80
 	cpu0_temp=39
 	cpu1_limit1=40
 	cpu1_limit2=70
@@ -241,14 +241,22 @@ if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu3_limit1=20
 	cpu3_limit2=50
 	cpu3_temp=41
+	
+	gpu_limit1=20
+	gpu_limit2=50
+	gpu_temp=40
 else
 	cpu_core="dual"
-	cpu0_limit1=40
-	cpu0_limit2=70
-	cpu0_temp=41
-	cpu1_limit1=30
-	cpu1_limit2=60
-	cpu1_temp=41
+	cpu0_limit1=50
+	cpu0_limit2=80
+	cpu0_temp=40
+	cpu1_limit1=40
+	cpu1_limit2=70
+	cpu1_temp=40
+	
+	gpu_limit1=30
+	gpu_limit2=60
+	gpu_temp=41
 fi;
 
 down_differential="/sys/devices/system/cpu/cpufreq/ondemand/down_differential"
@@ -261,8 +269,8 @@ optimal_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_freq"
 optimal_max_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq"
 
 down_differential_val=10
-sampling_down_factor_val=2
-up_threshold_val=95
+sampling_down_factor_val=4
+up_threshold_val=90
 
 while [ 1 ];
 do
@@ -283,11 +291,13 @@ do
 	get_cpu_usage 0
 	cpu0_max_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
 	cpu0_max_freq=`cat $cpu0_max_location`
-	cpu0_min_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"
-	cpu0_min_freq=`cat $cpu0_min_location`
-		
-	if [ $cpu0_min_freq -ne ${available_freq[2]} ]; then
-		echo ${available_freq[2]} > $cpu0_min_location
+	if [ $galaxy4 == "yes" ]; then
+		cpu0_min_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"
+		cpu0_min_freq=`cat $cpu0_min_location`
+			
+		if [ $cpu0_min_freq -ne ${available_freq[2]} ]; then
+			echo ${available_freq[2]} > $cpu0_min_location
+		fi;
 	fi;
 	
 	if [ $cpu0_max_check == "yes" -a $cpu0_usage -lt $(($cpu0_limit2-20)) ]; then
@@ -500,22 +510,26 @@ do
 		battery_count
 	fi;
 	
-	if [ $battery -lt 30 ]; then
-		down_differential_val=3
-		sampling_down_factor_val=2
-		up_threshold_val=98
-	elif [ $battery -lt 50 ]; then
-		down_differential_val=8
-		sampling_down_factor_val=3
-		up_threshold_val=98
-	elif [ $battery -lt 70 ]; then
-		down_differential_val=5
-		sampling_down_factor_val=3
-		up_threshold_val=95
+	if [ $battery -lt 50 ]; then
+		if [ $temp -lt $ondemand_temp ]; then
+			down_differential_val=8
+			sampling_down_factor_val=3
+			up_threshold_val=98
+		else
+			down_differential_val=13
+			sampling_down_factor_val=2
+			up_threshold_val=98
+		fi;
 	else
-		down_differential_val=10
-		sampling_down_factor_val=4
-		up_threshold_val=95
+		if [ $temp -lt $ondemand_temp ]; then
+			down_differential_val=10
+			sampling_down_factor_val=4
+			up_threshold_val=95
+		else
+			down_differential_val=15
+			sampling_down_factor_val=3
+			up_threshold_val=95
+		fi;
 	fi;
 	
 	if [ `cat $down_differential` -ne $down_differential_val -o `cat $sampling_down_factor` -ne $sampling_down_factor_val -o `cat $up_threshold` -ne $up_threshold_val ]; then
