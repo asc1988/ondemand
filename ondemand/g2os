@@ -229,16 +229,16 @@ gpu_max_check="no"
 if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
 	cpu0_limit1=25
-	cpu0_limit2=60
+	cpu0_limit2=50
 	cpu0_temp=40
 	cpu1_limit1=30
-	cpu1_limit2=65
+	cpu1_limit2=55
 	cpu1_temp=40
 	cpu2_limit1=35
-	cpu2_limit2=70
+	cpu2_limit2=60
 	cpu2_temp=41
 	cpu3_limit1=40
-	cpu3_limit2=75
+	cpu3_limit2=65
 	cpu3_temp=41
 	
 	gpu_limit1=25
@@ -246,8 +246,8 @@ if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	gpu_temp=40
 else
 	cpu_core="dual"
-	cpu0_limit1=50
-	cpu0_limit2=80
+	cpu0_limit1=40
+	cpu0_limit2=70
 	cpu0_temp=40
 	cpu1_limit1=45
 	cpu1_limit2=75
