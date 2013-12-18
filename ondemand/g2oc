@@ -213,7 +213,8 @@ battery_count()
 }
 
 ondemand="no"
-ondemand_temp=40
+ondemand_temp=39
+
 cpu0_ondemand="no"
 cpu1_ondemand="no"
 cpu2_ondemand="no"
@@ -224,39 +225,46 @@ cpu1_count=0
 cpu2_count=0
 cpu3_count=0
 
+cpu0_limit_gap=0
+cpu1_limit_gap=0
+cpu2_limit_gap=0
+cpu3_limit_gap=0
+
 gpu_count=0
+
+gpu_limit_gap=0
 
 gpu_max_check="no"
 
 if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
-	cpu0_limit1=30
-	cpu0_limit2=40
-	cpu0_temp=39
-	cpu1_limit1=30
-	cpu1_limit2=45
-	cpu1_temp=39
-	cpu2_limit1=35
-	cpu2_limit2=50
-	cpu2_temp=40
-	cpu3_limit1=40
-	cpu3_limit2=60
-	cpu3_temp=40
-	
-	gpu_limit1=20
-	gpu_limit2=50
-	gpu_temp=40
-else
-	cpu_core="dual"
-	cpu0_limit1=30
+	cpu0_limit1=40
 	cpu0_limit2=60
 	cpu0_temp=40
-	cpu1_limit1=35
-	cpu1_limit2=65
+	cpu1_limit1=40
+	cpu1_limit2=60
+	cpu1_temp=40
+	cpu2_limit1=45
+	cpu2_limit2=65
+	cpu2_temp=41
+	cpu3_limit1=45
+	cpu3_limit2=70
+	cpu3_temp=41
+	
+	gpu_limit1=25
+	gpu_limit2=60
+	gpu_temp=41
+else
+	cpu_core="dual"
+	cpu0_limit1=40
+	cpu0_limit2=70
+	cpu0_temp=40
+	cpu1_limit1=45
+	cpu1_limit2=75
 	cpu1_temp=41
 	
 	gpu_limit1=30
-	gpu_limit2=60
+	gpu_limit2=65
 	gpu_temp=41
 fi;
 
@@ -302,24 +310,33 @@ do
 	fi;
 	
 	if [ $cpu0_usage -ne 0 ]; then
-		if [ $cpu0_usage -lt $cpu0_limit1 ]; then
+		if [ $cpu0_usage -lt $(($cpu0_limit1-cpu0_limit_gap)) ]; then
 			cpu0_clk_val=$low_level
 			cpu0_count=0
 		else
-			cpu0_count=$(($cpu0_count+1))
-			
-			if [ $cpu0_count -ge 5 -a $cpu0_usage -lt $cpu0_limit2 ]; then
-				if [ $temp -lt $cpu0_temp ]; then
-					cpu0_clk_val=$middle_level
+			if [ $cpu0_usage -ge $(($cpu0_limit2-$cpu0_limit_gap)) ]; then
+				if [ $cpu0_count -le 2 ]; then
+					cpu0_count=$(($cpu0_count+2))
 				else
-					cpu0_clk_val=$low_level
+					cpu0_count=$(($cpu0_count+1))
 				fi;
-			else
+			fi;
+			
+			if [ $cpu0_count -ge 1 ]; then
+				cpu0_limit_gap=10
+				cpu0_count=$(($cpu0_count-1))
 				if [ $temp -lt $cpu0_temp ]; then
 					cpu0_clk_val=$max_level
 				else
+					cpu0_clk_val=$(($max_level-1))
+				fi
+			else
+				cpu0_limit_gap=0
+				if [ $temp -lt $cpu0_temp ]; then
 					cpu0_clk_val=$middle_level
-				fi;		
+				else
+					cpu0_clk_val=$(($middle_level-1))
+				fi;
 			fi;
 		fi;
 		
@@ -343,24 +360,33 @@ do
 		cpu1_max_freq=`cat $cpu1_max_location`
 		
 		if [ $cpu1_usage -ne 0 ]; then
-			if [ $cpu1_usage -lt $cpu1_limit1 ]; then
+			if [ $cpu1_usage -lt $(($cpu1_limit1-$cpu1_limit_gap)) ]; then
 				cpu1_clk_val=$low_level
 				cpu1_count=0
 			else
-				cpu1_count=$(($cpu1_count+1))
-				
-				if [ $cpu1_count -ge 4 -a $cpu1_usage -lt $cpu1_limit2 ]; then
-					if [ $temp -lt $cpu1_temp ]; then
-						cpu1_clk_val=$middle_level
+				if [ $cpu1_usage -ge $(($cpu1_limit2-$cpu1_limit_gap)) ]; then
+					if [ $cpu1_count -le 2 ]; then
+						cpu1_count=$(($cpu1_count+2))
 					else
-						cpu1_clk_val=$low_level
+						cpu1_count=$(($cpu1_count+1))
 					fi;
-				else
+				fi;
+				
+				if [ $cpu1_count -ge 1 ]; then
+					cpu1_limit_gap=10
+					cpu1_count=$(($cpu1_count-1))
 					if [ $temp -lt $cpu1_temp ]; then
 						cpu1_clk_val=$max_level
 					else
+						cpu1_clk_val=$(($max_level-1))
+					fi
+				else
+					cpu1_limit_gap=0
+					if [ $temp -lt $cpu1_temp ]; then
 						cpu1_clk_val=$middle_level
-					fi;		
+					else
+						cpu1_clk_val=$(($middle_level-1))
+					fi;
 				fi;
 			fi;
 			
@@ -388,24 +414,33 @@ do
 			cpu2_max_freq=`cat $cpu2_max_location`
 			
 			if [ $cpu2_usage -ne 0 ]; then
-				if [ $cpu2_usage -lt $cpu2_limit1 ]; then
+				if [ $cpu2_usage -lt $(($cpu2_limit1-$cpu2_limit_gap)) ]; then
 					cpu2_clk_val=$low_level
 					cpu2_count=0
 				else
-					cpu2_count=$(($cpu2_count+1))
-					
-					if [ $cpu2_count -ge 5 -a $cpu2_usage -lt $cpu2_limit2 ]; then
-						if [ $temp -lt $cpu2_temp ]; then
-							cpu2_clk_val=$middle_level
+					if [ $cpu2_usage -ge $(($cpu2_limit2-$cpu2_limit_gap)) ]; then
+						if [ $cpu2_count -le 2 ]; then
+							cpu2_count=$(($cpu2_count+2))
 						else
-							cpu2_clk_val=$low_level
+							cpu2_count=$(($cpu2_count+1))
 						fi;
-					else
+					fi;
+					
+					if [ $cpu2_count -ge 1 ]; then
+						cpu2_limit_gap=10
+						cpu2_count=$(($cpu2_count-1))
 						if [ $temp -lt $cpu2_temp ]; then
 							cpu2_clk_val=$max_level
 						else
+							cpu2_clk_val=$(($max_level-1))
+						fi
+					else
+						cpu2_limit_gap=0
+						if [ $temp -lt $cpu2_temp ]; then
 							cpu2_clk_val=$middle_level
-						fi;		
+						else
+							cpu2_clk_val=$(($middle_level-1))
+						fi;
 					fi;
 				fi;
 				
@@ -434,24 +469,33 @@ do
 			cpu3_max_freq=`cat $cpu3_max_location`
 			
 			if [ $cpu3_usage -ne 0 ]; then
-				if [ $cpu3_usage -lt $cpu3_limit1 ]; then
+				if [ $cpu3_usage -lt $(($cpu3_limit1-$cpu3_limit_gap)) ]; then
 					cpu3_clk_val=$low_level
 					cpu3_count=0
 				else
-					cpu3_count=$(($cpu3_count+1))
-					
-					if [ $cpu3_count -ge 5 -a $cpu3_usage -lt $cpu3_limit2 ]; then
-						if [ $temp -lt $cpu3_temp ]; then
-							cpu3_clk_val=$middle_level
+					if [ $cpu3_usage -ge $(($cpu3_limit2-$cpu3_limit_gap)) ]; then
+						if [ $cpu3_count -le 2 ]; then
+							cpu3_count=$(($cpu3_count+2))
 						else
-							cpu3_clk_val=$low_level
+							cpu3_count=$(($cpu3_count+1))
 						fi;
-					else
+					fi;
+					
+					if [ $cpu3_count -ge 1 ]; then
+						cpu3_limit_gap=10
+						cpu3_count=$(($cpu3_count-1))
 						if [ $temp -lt $cpu3_temp ]; then
 							cpu3_clk_val=$max_level
 						else
+							cpu3_clk_val=$(($max_level-1))
+						fi
+					else
+						cpu3_limit_gap=0
+						if [ $temp -lt $cpu3_temp ]; then
 							cpu3_clk_val=$middle_level
-						fi;		
+						else
+							cpu3_clk_val=$(($middle_level-1))
+						fi;
 					fi;
 				fi;
 				
@@ -466,29 +510,37 @@ do
 
 	if [ $gpu_check == "ok" ]; then
 		get_cpu_usage all		
-	
-		if [ $gpu_max_check == "yes" -a $cpu_usage -lt $(($gpu_limit2-20)) ]; then
-			gpu_max_check="no"
-		fi;
-	
-		if [ $gpu_max_check == "no" -a $cpu_usage -ne 0 ]; then
+		
+		if [ $cpu_usage -ne 0 ]; then
 			gpu_max_clk=`cat $gpumaxlocation`
-			gpu_clk_val=$gpu_max_level
 			if [ $cpu_usage -lt $gpu_limit1 ]; then
 				gpu_clk_val=$gpu_low_level
-			elif [ $cpu_usage -ge $gpu_limit1 -a $cpu_usage -le $gpu_limit2 ]; then
-				if [ $temp -lt $gpu_temp ]; then
-					gpu_clk_val=$gpu_middle_level
-				else
-					gpu_clk_val=$gpu_low_level				
-				fi;
+				gpu_count=0
 			else
-				if [ $temp -lt $gpu_temp ]; then
-					gpu_clk_val=$gpu_max_level
-				else
-					gpu_clk_val=$gpu_middle_level
+				if [ $cpu_usage -ge $(($gpu_limit2-$gpu_limit_gap)) ]; then
+					if [ $gpu_count -le 3 ]; then
+						gpu_count=$(($gpu_count+2))
+					else
+						gpu_count=$(($gpu_count+1))
+					fi;
 				fi;
-				gpu_max_check="yes"
+
+				if [ $gpu_count -ge 1 ]; then
+					gpu_limit_gap=20
+					gpu_count=$(($gpu_count-1))
+					if [ $temp -lt $gpu_temp ]; then
+						gpu_clk_val=$gpu_max_level
+					else
+						gpu_clk_val=$gpu_middle_level
+					fi;
+				else
+					gpu_limit_gap=0
+					if [ $temp -lt $gpu_temp ]; then
+						gpu_clk_val=$gpu_middle_level
+					else
+						gpu_clk_val=$gpu_low_level				
+					fi;
+				fi;
 			fi;
 			
 			if [ $gpu_max_clk -ne ${gpu_available_freq[$gpu_clk_val]} ]; then
@@ -503,23 +555,23 @@ do
 	
 	if [ $battery -lt 50 ]; then
 		if [ $temp -lt $ondemand_temp ]; then
-			down_differential_val=13
-			sampling_down_factor_val=1
+			down_differential_val=8
+			sampling_down_factor_val=3
 			up_threshold_val=98
 		else
-			down_differential_val=15
+			down_differential_val=13
 			sampling_down_factor_val=2
-			up_threshold_val=95
+			up_threshold_val=98
 		fi;
 	else
 		if [ $temp -lt $ondemand_temp ]; then
-			down_differential_val=15
-			sampling_down_factor_val=1
-			up_threshold_val=95
+			down_differential_val=9
+			sampling_down_factor_val=3
+			up_threshold_val=97
 		else
 			down_differential_val=10
 			sampling_down_factor_val=2
-			up_threshold_val=90
+			up_threshold_val=95
 		fi;
 	fi;
 	
@@ -536,10 +588,12 @@ do
 			echo "80" > $up_threshold_any_cpu_load
 			echo ${available_freq[$half_level]} > $sync_freq
 		fi;
+		
 		if [ -e $up_threshold_multi_core -a -e $optimal_freq ]; then
 			echo "70" > $up_threshold_multi_core
 			echo ${available_freq[$half_level]} > $optimal_freq
 		fi;
+		
 		if [ -e $optimal_max_freq ]; then
 			echo ${available_freq[$half_level]} > $optimal_max_freq
 		fi;
