@@ -1,5 +1,16 @@
 #!/system/bin/sh
 
+if [ ! -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
+	busybox mount -o rw,remount /system
+	if [ ! -e /system/asc_log.txt ]; then
+		touch /system/asc_log.txt
+		chmod 777 /system/asc_log.txt
+	fi;
+	echo "fail apply to tweak" >> /system/asc_log.txt
+	echo "cpu max_freq not found error" >> /system/asc_log.txt
+	exit;
+fi;
+
 user_cpu_table="/cpu_table_location"
 if [ $user_cpu_table != "" -a -e $user_cpu_table ]; then	
 	tmp_available_freq=(`cat $user_cpu_table`)
@@ -20,7 +31,7 @@ do
 			i=$(($i+1))
 		fi;
 		
-		if [ $freq -ge 800000 -a $freq -le 900000 ]; then
+		if [ $freq -ge 900000 -a $freq -le 1000000 ]; then
 			half_level=$i
 		fi;
  	done
@@ -213,7 +224,11 @@ battery_count()
 }
 
 ondemand="no"
+ondemand_limit1=20
+ondemand_limit2=70
 ondemand_temp=39
+ondemand_count=0
+ondemand_limit_gap=0
 
 cpu0_ondemand="no"
 cpu1_ondemand="no"
@@ -239,19 +254,19 @@ gpu_max_check="no"
 if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
 	cpu0_limit1=40
-	cpu0_limit2=60
+	cpu0_limit2=70
 	cpu0_temp=40
 	cpu1_limit1=40
-	cpu1_limit2=60
+	cpu1_limit2=70
 	cpu1_temp=40
 	cpu2_limit1=45
-	cpu2_limit2=65
+	cpu2_limit2=75
 	cpu2_temp=41
-	cpu3_limit1=45
-	cpu3_limit2=70
+	cpu3_limit1=50
+	cpu3_limit2=80
 	cpu3_temp=41
 	
-	gpu_limit1=25
+	gpu_limit1=30
 	gpu_limit2=60
 	gpu_temp=41
 else
@@ -263,8 +278,8 @@ else
 	cpu1_limit2=75
 	cpu1_temp=41
 	
-	gpu_limit1=30
-	gpu_limit2=65
+	gpu_limit1=40
+	gpu_limit2=80
 	gpu_temp=41
 fi;
 
@@ -278,8 +293,8 @@ optimal_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_freq"
 optimal_max_freq="/sys/devices/system/cpu/cpufreq/ondemand/optimal_max_freq"
 
 down_differential_val=10
-sampling_down_factor_val=2
-up_threshold_val=95
+sampling_down_factor_val=4
+up_threshold_val=90
 
 while [ 1 ];
 do
@@ -315,7 +330,7 @@ do
 			cpu0_count=0
 		else
 			if [ $cpu0_usage -ge $(($cpu0_limit2-$cpu0_limit_gap)) ]; then
-				if [ $cpu0_count -le 2 ]; then
+				if [ $cpu0_count -le 3 ]; then
 					cpu0_count=$(($cpu0_count+2))
 				else
 					cpu0_count=$(($cpu0_count+1))
@@ -365,7 +380,7 @@ do
 				cpu1_count=0
 			else
 				if [ $cpu1_usage -ge $(($cpu1_limit2-$cpu1_limit_gap)) ]; then
-					if [ $cpu1_count -le 2 ]; then
+					if [ $cpu1_count -le 3 ]; then
 						cpu1_count=$(($cpu1_count+2))
 					else
 						cpu1_count=$(($cpu1_count+1))
@@ -419,7 +434,7 @@ do
 					cpu2_count=0
 				else
 					if [ $cpu2_usage -ge $(($cpu2_limit2-$cpu2_limit_gap)) ]; then
-						if [ $cpu2_count -le 2 ]; then
+						if [ $cpu2_count -le 3 ]; then
 							cpu2_count=$(($cpu2_count+2))
 						else
 							cpu2_count=$(($cpu2_count+1))
@@ -474,7 +489,7 @@ do
 					cpu3_count=0
 				else
 					if [ $cpu3_usage -ge $(($cpu3_limit2-$cpu3_limit_gap)) ]; then
-						if [ $cpu3_count -le 2 ]; then
+						if [ $cpu3_count -le 3 ]; then
 							cpu3_count=$(($cpu3_count+2))
 						else
 							cpu3_count=$(($cpu3_count+1))
@@ -508,9 +523,9 @@ do
 		fi;
 	fi;
 
+	get_cpu_usage all
+
 	if [ $gpu_check == "ok" ]; then
-		get_cpu_usage all		
-		
 		if [ $cpu_usage -ne 0 ]; then
 			gpu_max_clk=`cat $gpumaxlocation`
 			if [ $cpu_usage -lt $gpu_limit1 ]; then
@@ -518,7 +533,7 @@ do
 				gpu_count=0
 			else
 				if [ $cpu_usage -ge $(($gpu_limit2-$gpu_limit_gap)) ]; then
-					if [ $gpu_count -le 3 ]; then
+					if [ $gpu_count -le 5 ]; then
 						gpu_count=$(($gpu_count+2))
 					else
 						gpu_count=$(($gpu_count+1))
@@ -549,29 +564,45 @@ do
 		fi;
 	fi;
 	
-	if [ $battery -ne 1000 ]; then
-		battery_count
-	fi;
-	
-	if [ $battery -lt 50 ]; then
-		if [ $temp -lt $ondemand_temp ]; then
-			down_differential_val=8
-			sampling_down_factor_val=3
-			up_threshold_val=98
-		else
-			down_differential_val=13
+	if [ $cpu_usage -ne 0 ]; then
+		if [ $cpu_usage -lt $ondemand_limit1 ]; then
+			down_differential_val=3
 			sampling_down_factor_val=2
 			up_threshold_val=98
-		fi;
-	else
-		if [ $temp -lt $ondemand_temp ]; then
-			down_differential_val=9
-			sampling_down_factor_val=3
-			up_threshold_val=97
+			ondemand_count=0
 		else
-			down_differential_val=10
-			sampling_down_factor_val=2
-			up_threshold_val=95
+			if [ $cpu_usage -ge $(($ondemand_limit2-$ondemand_limit_gap)) ]; then
+				if [ $ondemand_count -le 5 ]; then
+					ondemand_count=$(($ondemand_count+2))
+				else
+					ondemand_count=$(($ondemand_count+1))
+				fi;
+			fi;
+
+			if [ $ondemand_count -ge 1 ]; then
+				ondemand_limit_gap=20
+				ondemand_count=$(($ondemand_count-1))
+				if [ $temp -lt $ondemand_temp ]; then
+					down_differential_val=5
+					sampling_down_factor_val=4
+					up_threshold_val=95
+				else
+					down_differential_val=5
+					sampling_down_factor_val=2
+					up_threshold_val=95
+				fi;
+			else
+				ondemand_limit_gap=0
+				if [ $temp -lt $ondemand_temp ]; then
+					down_differential_val=3
+					sampling_down_factor_val=4
+					up_threshold_val=98
+				else
+					down_differential_val=3
+					sampling_down_factor_val=2
+					up_threshold_val=98
+				fi;
+			fi;
 		fi;
 	fi;
 	
@@ -585,12 +616,12 @@ do
 		echo $up_threshold_val > $up_threshold
 		
 		if [ -e $up_threshold_any_cpu_load -a -e $sync_freq ]; then
-			echo "80" > $up_threshold_any_cpu_load
+			echo "90" > $up_threshold_any_cpu_load
 			echo ${available_freq[$half_level]} > $sync_freq
 		fi;
 		
 		if [ -e $up_threshold_multi_core -a -e $optimal_freq ]; then
-			echo "70" > $up_threshold_multi_core
+			echo "80" > $up_threshold_multi_core
 			echo ${available_freq[$half_level]} > $optimal_freq
 		fi;
 		

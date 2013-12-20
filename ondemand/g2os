@@ -1,5 +1,16 @@
 #!/system/bin/sh
 
+if [ ! -e /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
+	busybox mount -o rw,remount /system
+	if [ ! -e /system/asc_log.txt ]; then
+		touch /system/asc_log.txt
+		chmod 777 /system/asc_log.txt
+	fi;
+	echo "fail apply to tweak" >> /system/asc_log.txt
+	echo "cpu max_freq not found error" >> /system/asc_log.txt
+	exit;
+fi;
+
 user_cpu_table="/cpu_table_location"
 if [ $user_cpu_table != "" -a -e $user_cpu_table ]; then	
 	tmp_available_freq=(`cat $user_cpu_table`)
