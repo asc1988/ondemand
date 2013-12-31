@@ -232,6 +232,10 @@ ondemand_delay="no"
 ondemand_limit_gap_min=0
 ondemand_limit_gap_max=0
 
+ondemand_sum_usage=0
+ondemand_avg_count=0
+ondemand_avg_usage=0
+
 cpu0_ondemand="no"
 cpu1_ondemand="no"
 cpu2_ondemand="no"
@@ -331,6 +335,7 @@ do
 	cpu0_max_freq=`cat $cpu0_max_location`
 	cpu0_min_location="/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq"
 	cpu0_min_freq=`cat $cpu0_min_location`
+	
 	if [ $galaxy4 == "yes" ]; then
 		if [ $cpu0_min_freq -ne ${available_freq[2]} ]; then
 			echo ${available_freq[2]} > $cpu0_min_location
@@ -394,8 +399,14 @@ do
 		cpu1_min_location="/sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq"
 		cpu1_min_freq=`cat $cpu1_min_location`
 		
-		if [ $cpu1_min_freq -ne ${available_freq[1]} ]; then
-			echo ${available_freq[1]} > $cpu1_min_location
+		if [ $galaxy4 == "yes" ]; then
+			if [ $cpu1_min_freq -ne ${available_freq[2]} ]; then
+				echo ${available_freq[2]} > $cpu1_min_location
+			fi;
+		else
+			if [ $cpu1_min_freq -ne ${available_freq[1]} ]; then
+				echo ${available_freq[1]} > $cpu1_min_location
+			fi;
 		fi;
 		
 		if [ $cpu1_usage -ne 0 ]; then
@@ -457,8 +468,14 @@ do
 			cpu2_min_location="/sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq"
 			cpu2_min_freq=`cat $cpu2_min_location`
 			
-			if [ $cpu2_min_freq -ne ${available_freq[1]} ]; then
-				echo ${available_freq[1]} > $cpu2_min_location
+			if [ $galaxy4 == "yes" ]; then
+				if [ $cpu2_min_freq -ne ${available_freq[2]} ]; then
+					echo ${available_freq[2]} > $cpu2_min_location
+				fi;
+			else
+				if [ $cpu2_min_freq -ne ${available_freq[1]} ]; then
+					echo ${available_freq[1]} > $cpu2_min_location
+				fi;
 			fi;
 			
 			if [ $cpu2_usage -ne 0 ]; then
@@ -521,8 +538,14 @@ do
 			cpu3_min_location="/sys/devices/system/cpu/cpu3/cpufreq/scaling_min_freq"
 			cpu3_min_freq=`cat $cpu3_min_location`
 			
-			if [ $cpu3_min_freq -ne ${available_freq[1]} ]; then
-				echo ${available_freq[1]} > $cpu3_min_location
+			if [ $galaxy4 == "yes" ]; then
+				if [ $cpu3_min_freq -ne ${available_freq[2]} ]; then
+					echo ${available_freq[2]} > $cpu3_min_location
+				fi;
+			else
+				if [ $cpu3_min_freq -ne ${available_freq[1]} ]; then
+					echo ${available_freq[1]} > $cpu3_min_location
+				fi;
 			fi;
 			
 			if [ $cpu3_usage -ne 0 ]; then
@@ -599,7 +622,7 @@ do
 					if [ $temp -lt $gpu_temp ]; then
 						gpu_clk_val=$gpu_middle_level
 					else
-						gpu_clk_val=$gpu_low_level				
+						gpu_clk_val=$gpu_low_level
 					fi;
 				fi;
 			fi;
@@ -608,6 +631,16 @@ do
 				echo ${gpu_available_freq[$gpu_clk_val]} > $gpumaxlocation
 			fi;
 		fi;
+	fi;
+
+	if [ $ondemand_avg_count -lt 10 ]; then
+		ondemand_avg_usage=0
+		ondemand_avg_count=$(($ondemand_avg_count+1))
+		ondemand_sum_usage=$(($ondemand_sum_usage+$cpu_usage))
+	else
+		ondemand_avg_usage=$(($ondemand_sum_usage/$ondemand_avg_count))
+		ondemand_avg_count=1
+		ondemand_sum_usage=$cpu_usage
 	fi;
 
 	if [ $cpu_usage -ne 0 ]; then
@@ -635,6 +668,10 @@ do
 				ondemand_delay_count=$(($ondemand_delay_count+1))
 			else
 				ondemand_delay_count=0
+			fi;
+
+			if [ $ondemand_avg_usage -ne 0 -a $ondemand_avg_usage -le 20 -a $ondemand_count -ge 1 ]; then
+				ondemand_count=0
 			fi;
 
 			if [ $ondemand_count -ge 1 ]; then
