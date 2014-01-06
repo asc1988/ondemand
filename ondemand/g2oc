@@ -266,15 +266,23 @@ if [ -e /sys/devices/system/cpu/cpu2 -a -e /sys/devices/system/cpu/cpu3 ]; then
 	cpu_core="quard"
 	cpu0_limit1=45
 	cpu0_limit2=70
+	cpu0_min_limit1=60
+	cpu0_min_limit2=80
 	cpu0_temp=41
 	cpu1_limit1=45
 	cpu1_limit2=70
+	cpu1_min_limit1=60
+	cpu1_min_limit2=80
 	cpu1_temp=41
 	cpu2_limit1=50
 	cpu2_limit2=75
+	cpu2_min_limit1=65
+	cpu2_min_limit2=85
 	cpu2_temp=40
 	cpu3_limit1=55
 	cpu3_limit2=80
+	cpu3_min_limit1=70
+	cpu3_min_limit2=90
 	cpu3_temp=40
 	
 	gpu_limit1=35
@@ -287,9 +295,13 @@ else
 	cpu_core="dual"
 	cpu0_limit1=55
 	cpu0_limit2=80
+	cpu0_min_limit1=70
+	cpu0_min_limit2=90
 	cpu0_temp=40
 	cpu1_limit1=60
 	cpu1_limit2=85
+	cpu0_min_limit1=70
+	cpu0_min_limit2=90
 	cpu1_temp=41
 	
 	gpu_limit1=45
@@ -337,13 +349,21 @@ do
 	cpu0_min_freq=`cat $cpu0_min_location`
 	
 	if [ $galaxy4 == "yes" ]; then
-		if [ $cpu0_min_freq -ne ${available_freq[2]} ]; then
-			echo ${available_freq[2]} > $cpu0_min_location
-		fi;
+		cpu0_min_clk_val=2
 	else
-		if [ $cpu0_min_freq -ne ${available_freq[1]} ]; then
-			echo ${available_freq[1]} > $cpu0_min_location
+		cpu0_min_clk_val=1
+	fi;
+	
+	if [ $cpu0_usage -ge $cpu0_min_limit1 ]; then
+		if [ $cpu0_usage -ge $cpu0_min_limit2 ]; then
+			cpu0_min_clk_val=$low_level
+		else
+			cpu0_min_clk_val=$(($low_level-1))		
 		fi;
+	fi;
+	
+	if [ $cpu0_min_freq -ne ${available_freq[$cpu0_min_clk_val]} ]; then
+		echo ${available_freq[$cpu0_min_clk_val]} > $cpu0_min_location
 	fi;
 	
 	if [ $cpu0_usage -ne 0 ]; then
@@ -400,13 +420,21 @@ do
 		cpu1_min_freq=`cat $cpu1_min_location`
 		
 		if [ $galaxy4 == "yes" ]; then
-			if [ $cpu1_min_freq -ne ${available_freq[2]} ]; then
-				echo ${available_freq[2]} > $cpu1_min_location
-			fi;
+			cpu1_min_clk_val=2
 		else
-			if [ $cpu1_min_freq -ne ${available_freq[1]} ]; then
-				echo ${available_freq[1]} > $cpu1_min_location
+			cpu1_min_clk_val=1
+		fi;
+		
+		if [ $cpu1_usage -ge $cpu1_min_limit1 ]; then
+			if [ $cpu1_usage -ge $cpu1_min_limit2 ]; then
+				cpu1_min_clk_val=$low_level
+			else
+				cpu1_min_clk_val=$(($low_level-1))		
 			fi;
+		fi;
+		
+		if [ $cpu1_min_freq -ne ${available_freq[$cpu1_min_clk_val]} ]; then
+			echo ${available_freq[$cpu1_min_clk_val]} > $cpu1_min_location
 		fi;
 		
 		if [ $cpu1_usage -ne 0 ]; then
@@ -469,13 +497,21 @@ do
 			cpu2_min_freq=`cat $cpu2_min_location`
 			
 			if [ $galaxy4 == "yes" ]; then
-				if [ $cpu2_min_freq -ne ${available_freq[2]} ]; then
-					echo ${available_freq[2]} > $cpu2_min_location
-				fi;
+				cpu2_min_clk_val=2
 			else
-				if [ $cpu2_min_freq -ne ${available_freq[1]} ]; then
-					echo ${available_freq[1]} > $cpu2_min_location
-				fi;
+				cpu2_min_clk_val=1
+			fi;
+			
+			if [ $cpu2_usage -ge $cpu2_min_limit1 ]; then
+				if [ $cpu2_usage -ge $cpu2_min_limit2 ]; then
+					cpu2_min_clk_val=$low_level
+				else
+					cpu2_min_clk_val=$(($low_level-1))		
+				fi;				
+			fi;
+			
+			if [ $cpu2_min_freq -ne ${available_freq[$cpu2_min_clk_val]} ]; then
+				echo ${available_freq[$cpu2_min_clk_val]} > $cpu2_min_location
 			fi;
 			
 			if [ $cpu2_usage -ne 0 ]; then
@@ -539,13 +575,21 @@ do
 			cpu3_min_freq=`cat $cpu3_min_location`
 			
 			if [ $galaxy4 == "yes" ]; then
-				if [ $cpu3_min_freq -ne ${available_freq[2]} ]; then
-					echo ${available_freq[2]} > $cpu3_min_location
-				fi;
+				cpu3_min_clk_val=2
 			else
-				if [ $cpu3_min_freq -ne ${available_freq[1]} ]; then
-					echo ${available_freq[1]} > $cpu3_min_location
-				fi;
+				cpu3_min_clk_val=1
+			fi;
+			
+			if [ $cpu3_usage -ge $cpu3_min_limit1 ]; then
+				if [ $cpu3_usage -ge $cpu3_min_limit2 ]; then
+					cpu3_min_clk_val=$low_level
+				else
+					cpu3_min_clk_val=$(($low_level-1))	
+				fi;				
+			fi;
+			
+			if [ $cpu3_min_freq -ne ${available_freq[$cpu3_min_clk_val]} ]; then
+				echo ${available_freq[$cpu3_min_clk_val]} > $cpu3_min_location
 			fi;
 			
 			if [ $cpu3_usage -ne 0 ]; then
@@ -657,9 +701,9 @@ do
 		else
 			ondemand_limit_gap_min=10
 			
-			down_differential_val=4
+			down_differential_val=3
 			sampling_down_factor_val=4
-			up_threshold_val=99
+			up_threshold_val=98
 			
 			if [ $cpu_usage -ge $(($ondemand_limit2-$ondemand_limit_gap_max)) ]; then
 				if [ $ondemand_count -le 5 ]; then
@@ -690,9 +734,9 @@ do
 				else
 					ondemand_count=$(($ondemand_count-1))
 				fi;
-				down_differential_val=8
-				sampling_down_factor_val=2
-				up_threshold_val=98
+				down_differential_val=5
+				sampling_down_factor_val=10
+				up_threshold_val=95
 			fi;
 		fi;
 	fi;
